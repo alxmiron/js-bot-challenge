@@ -31,6 +31,6 @@
   "playersInTeam": 3,
   "periodDuration": 30000,
   "tickDuration": 20,
-  "bot1": "userBot.js",
+  "bot1": "myBot.js",
   "bot2": "defaultBot.js"
 }
