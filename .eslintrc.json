@@ -3,5 +3,10 @@
     "globals": {
       "onmessage": true,
       "postMessage": true
+    },
+    "rules": {
+      "no-use-before-define": 0,
+      "prefer-destructuring": 0,
+      "padded-blocks": 0
     }
 }
