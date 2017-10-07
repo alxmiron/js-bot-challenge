@@ -1,0 +1,7 @@
+{
+    "extends": "airbnb-base",
+    "globals": {
+      "onmessage": true,
+      "postMessage": true
+    }
+}
