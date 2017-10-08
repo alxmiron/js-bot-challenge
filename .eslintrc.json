@@ -7,6 +7,7 @@
     "rules": {
       "no-use-before-define": 0,
       "prefer-destructuring": 0,
-      "padded-blocks": 0
+      "padded-blocks": 0,
+      "no-restricted-properties": 0
     }
 }
