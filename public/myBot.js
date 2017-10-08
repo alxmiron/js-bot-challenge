@@ -2,24 +2,14 @@
 
 const PI = Math.PI;
 
-const GOALKEEPER = 1;
 const PLAYMAKER_TOP = 0;
+const GOALKEEPER = 1;
 const PLAYMAKER_BOTTOM = 2;
 
 const GOALKEEPER_POS_X = 80 / 708; // % of field width
 const GoalkeeperModes = {
   FOLLOW: 'FOLLOW', // align Y with the ball, but keep goalkeeper X distance
   DEFENCE: 'DEFENCE', // move toward the ball
-};
-
-// const PlaymakerModes = {
-//   ATTACK: 'ATTACK',
-//   FOLLOW: 'FOLLOW',
-//   DEFENCE: 'DEFENCE',
-// };
-const PlaymakerTypes = {
-  TOP: PLAYMAKER_TOP,
-  BOTTOM: PLAYMAKER_BOTTOM,
 };
 
 const Zones = {
@@ -36,6 +26,7 @@ const PlayerZone = {
 
 const POS_EPS = 2;
 // const DIR_EPS = PI / 180;
+// const DEFENCE_BYPAS_THRESHOLD = PI / 4;
 
 function getPlayerMove(data) {
   const currentPlayer = data.yourTeam.players[data.playerIndex];
@@ -168,7 +159,7 @@ function calculatePlaymakerMove(data, playmakerType) {
   };
 
   if (ballZone.center) {
-    if (playmakerType === PlaymakerTypes.TOP) {
+    if (playmakerType === PLAYMAKER_TOP) {
       return calculateAttackPlaymakerMove(data, playmakerType);
     }
     return calculateFollowPlaymakerMove(data, playmakerType, ballStop, zones);
@@ -316,7 +307,13 @@ function getPlayerVelocity( // Formula 1
 }
 
 function convertEngineDirection(engineDirection) { // Formula 2
-  return engineDirection > PI ? engineDirection - (2 * PI) : engineDirection;
+  if (engineDirection > PI) return engineDirection - (2 * PI);
+  if (engineDirection < -PI) return engineDirection + (2 * PI);
+  return engineDirection;
+}
+
+function convertPlayerDirection(playerDirection) {
+  return playerDirection > PI ? playerDirection + (2 * PI) : playerDirection;
 }
 
 function getZonesParams(data) {
