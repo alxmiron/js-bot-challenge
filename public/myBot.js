@@ -1,8 +1,3 @@
-//
-// Aggresive strategy "run-and-kick"- all players run to ball and kick it
-// if possible to any direction
-//
-
 'use strict'; // eslint-disable-line
 
 const PI = Math.PI;
@@ -136,7 +131,7 @@ function getGoalkeeperVelocity(
   return null;
 }
 
-function slowStopGoalkeeper(velocity, distance, playerRadius, maxPlayerVelocity) {
+function slowStopGoalkeeper(velocity, distance, playerRadius, maxPlayerVelocity) { // Formula 3
   let newVelocity = velocity;
   const stopThreshold = playerRadius * (velocity / maxPlayerVelocity) * 8;
   if (distance < stopThreshold) {
@@ -206,7 +201,7 @@ function getDistance(point1, point2) {
   return Math.hypot(point1.x - point2.x, point1.y - point2.y);
 }
 
-function getPlayerVelocity(
+function getPlayerVelocity( // Formula 1
   currentVelocity,
   directionDelta,
   maxVelocity,
@@ -221,7 +216,7 @@ function getPlayerVelocity(
   return velocity;
 }
 
-function convertEngineDirection(engineDirection) {
+function convertEngineDirection(engineDirection) { // Formula 2
   return engineDirection > PI ? engineDirection - (2 * PI) : engineDirection;
 }
 
