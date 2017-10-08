@@ -81,8 +81,8 @@ function calculateGoalkeeperMove(data) {
       };
       break;
     case GoalkeeperModes.DEFENCE:
-      targetPoint = distanceToBall <= ballRadius ? {
-        x: ball.x,
+      targetPoint = (distanceToBall <= ballRadius * 2) ? {
+        x: ball.x - ballRadius,
         y: ball.y,
       } : {
         x: ballStop.x - ballRadius,
@@ -160,7 +160,7 @@ function calculatePlaymakerMove(data, playmakerType) {
 
   if (ballZone.center) {
     if (playmakerType === PLAYMAKER_TOP) {
-      return calculateAttackPlaymakerMove(data, playmakerType);
+      return calculateAttackPlaymakerMove(data, playmakerType, true);
     }
     return calculateFollowPlaymakerMove(data, playmakerType, ballStop, zones);
   }
@@ -178,17 +178,23 @@ function calculatePlaymakerMove(data, playmakerType) {
   return moveObj;
 }
 
-function calculateAttackPlaymakerMove(data) {
+function calculateAttackPlaymakerMove(data, playmakerType, firstRun) {
   const player = data.yourTeam.players[data.playerIndex];
   const ball = data.ball;
   const ballRadius = data.settings.ball.radius;
 
   const currentPoint = player;
-  const targetPoint = ball;
+  let targetPoint = ball;
+  if (firstRun) {
+    targetPoint = {
+      x: ball.x - ballRadius,
+      y: ball.y + posNoize(ballRadius),
+    };
+  }
   const targetDirection = getDirectionTo(currentPoint, targetPoint);
   const directionDelta = targetDirection - convertEngineDirection(player.direction);
 
-  const moveDirection = Math.atan2(ball.y - player.y, ball.x - player.x - ballRadius);
+  const moveDirection = Math.atan2(targetPoint.y - currentPoint.y, targetPoint.x - currentPoint.x - ballRadius);
   const moveVelocity = getPlayerVelocity(
     data,
     player.velocity,
@@ -201,7 +207,7 @@ function calculateAttackPlaymakerMove(data) {
   };
 }
 
-function calculateDefencePlaymakerMove(data) {
+function calculateDefencePlaymakerMove(data, playmakerType) {
   const player = data.yourTeam.players[data.playerIndex];
   const ball = data.ball;
 
@@ -209,7 +215,7 @@ function calculateDefencePlaymakerMove(data) {
   const moveVelocity = 0;
 
   if (ball.x > player.x) {
-    return calculateAttackPlaymakerMove(data);
+    return calculateAttackPlaymakerMove(data, playmakerType);
   }
 
   return {
