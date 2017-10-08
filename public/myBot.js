@@ -33,6 +33,7 @@ function getPlayerMove(data) {
       moveObj = calculateGoalkeeperMove(data);
       break;
     default:
+      moveObj = calculatePlaymakerMove(data);
   }
 
   return {
@@ -142,6 +143,28 @@ function slowStopGoalkeeper(velocity, distance, playerRadius, maxPlayerVelocity)
     newVelocity = 0;
   }
   return newVelocity;
+}
+
+
+// -------------------------------------
+// Attack players
+// -------------------------------------
+
+// Aggresive strategy "run-and-kick"- all players run to ball and kick it
+// if possible to any direction
+function calculatePlaymakerMove(data) {
+  const player = data.yourTeam.players[data.playerIndex];
+  const maxPlayerVelocity = data.settings.player.maxVelocity;
+  const ball = data.ball;
+  const ballRadius = data.settings.ball.radius;
+  const ballStop = getBallStats(ball, data.settings);
+
+  const attackDirection = Math.atan2(ballStop.y - player.y, ballStop.x - player.x - ballRadius);
+
+  return {
+    direction: attackDirection,
+    velocity: maxPlayerVelocity,
+  };
 }
 
 
