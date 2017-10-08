@@ -158,12 +158,12 @@ function calculatePlaymakerMove(data, playmakerType) {
     velocity: 0,
   };
 
+  let firstRun = false;
   if (ballZone.center) {
-    if (playmakerType === PLAYMAKER_TOP) {
-      return calculateAttackPlaymakerMove(data, playmakerType, true);
-    }
-    return calculateFollowPlaymakerMove(data, playmakerType, ballStop, zones);
+    firstRun = true;
+    return calculateAttackPlaymakerMove(data, playmakerType, firstRun);
   }
+  firstRun = false;
 
   if (ballZone.zone === playerZone || ballZone.zone === Zones.G) {
     if (ballZone.aggressive || (ballZone.closeToEdge && !ballZone.defence)) {
@@ -182,6 +182,7 @@ function calculateAttackPlaymakerMove(data, playmakerType, firstRun) {
   const player = data.yourTeam.players[data.playerIndex];
   const ball = data.ball;
   const ballRadius = data.settings.ball.radius;
+  const maxPlayerVelocity = data.settings.player.maxVelocity;
 
   const currentPoint = player;
   let targetPoint = ball;
@@ -195,7 +196,7 @@ function calculateAttackPlaymakerMove(data, playmakerType, firstRun) {
   const directionDelta = targetDirection - convertEngineDirection(player.direction);
 
   const moveDirection = Math.atan2(targetPoint.y - currentPoint.y, targetPoint.x - currentPoint.x - ballRadius);
-  const moveVelocity = getPlayerVelocity(
+  const moveVelocity = firstRun ? maxPlayerVelocity : getPlayerVelocity(
     data,
     player.velocity,
     directionDelta,
