@@ -141,7 +141,7 @@ function calculatePlaymakerMove(data, playmakerType) {
 
   const ballStop = getBallStop(ball, data.settings);
   const zones = getZonesParams(data);
-  const ballZone = detectPointZone(zones, ball, data.settings.field);
+  const ballZone = detectPointZone(data, zones, ball);
 
   let moveObj = {
     direction: player.direction,
@@ -156,7 +156,7 @@ function calculatePlaymakerMove(data, playmakerType) {
   }
 
   if (ballZone.zone === playerZone || ballZone.zone === Zones.G) {
-    if (ballZone.aggressive) {
+    if (ballZone.aggressive || (ballZone.closeToEdge && !ballZone.defence)) {
       moveObj = calculateAttackPlaymakerMove(data, playmakerType);
     } else {
       // moveObj = calculateDefencePlaymakerMove();
@@ -327,14 +327,17 @@ function getZonesParams(data) {
   };
 }
 
-function detectPointZone(zones, point, field) {
+function detectPointZone(data, zones, point) {
+  const field = data.settings.field;
   const x = point.x;
   const y = point.y;
+  const eps = data.settings.ball.radius * 4;
   const result = {
     zone: null,
     defence: false,
     aggressive: false,
     center: false,
+    closeToEdge: false,
   };
 
   if (x > zones[Zones.G].end) {
@@ -342,6 +345,9 @@ function detectPointZone(zones, point, field) {
       result.zone = Zones.PT;
     } else {
       result.zone = Zones.PB;
+    }
+    if (Math.abs(y - zones[Zones.PT].bottom) < eps) {
+      result.closeToEdge = true;
     }
     if (x < field.width * 0.5) {
       result.defence = true;
