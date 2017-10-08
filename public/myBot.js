@@ -69,7 +69,6 @@ function calculateGoalkeeperMove(data) {
 
   const fieldWidth = data.settings.field.width;
   const ballRadius = data.settings.ball.radius;
-  const maxPlayerVelocity = data.settings.player.maxVelocity;
   const zones = getZonesParams(data);
   const goalkeeperZoneEnd = zones[Zones.G].end;
 
@@ -110,10 +109,9 @@ function calculateGoalkeeperMove(data) {
     data,
     mode,
     getPlayerVelocity(
+      data,
       player.velocity,
       directionDelta,
-      maxPlayerVelocity,
-      2,
     ),
     targetDistance,
     distanceToBall,
@@ -180,8 +178,7 @@ function calculatePlaymakerMove(data, playmakerType) {
     if (ballZone.aggressive || (ballZone.closeToEdge && !ballZone.defence)) {
       moveObj = calculateAttackPlaymakerMove(data, playmakerType);
     } else {
-      // moveObj = calculateDefencePlaymakerMove();
-      moveObj = calculateAttackPlaymakerMove(data, playmakerType);
+      moveObj = calculateDefencePlaymakerMove(data, playmakerType);
     }
   } else {
     moveObj = calculateFollowPlaymakerMove(data, playmakerType, ballStop, zones);
@@ -192,7 +189,6 @@ function calculatePlaymakerMove(data, playmakerType) {
 
 function calculateAttackPlaymakerMove(data) {
   const player = data.yourTeam.players[data.playerIndex];
-  const maxPlayerVelocity = data.settings.player.maxVelocity;
   const ball = data.ball;
   const ballRadius = data.settings.ball.radius;
 
@@ -203,10 +199,9 @@ function calculateAttackPlaymakerMove(data) {
 
   const moveDirection = Math.atan2(ball.y - player.y, ball.x - player.x - ballRadius);
   const moveVelocity = getPlayerVelocity(
+    data,
     player.velocity,
     directionDelta,
-    maxPlayerVelocity,
-    2,
   );
 
   return {
@@ -215,9 +210,22 @@ function calculateAttackPlaymakerMove(data) {
   };
 }
 
-// function calculateDefencePlaymakerMove() {
-//
-// }
+function calculateDefencePlaymakerMove(data) {
+  const player = data.yourTeam.players[data.playerIndex];
+  const ball = data.ball;
+
+  const moveDirection = player.direction;
+  const moveVelocity = 0;
+
+  if (ball.x > player.x) {
+    return calculateAttackPlaymakerMove(data);
+  }
+
+  return {
+    direction: moveDirection,
+    velocity: moveVelocity,
+  };
+}
 
 function calculateFollowPlaymakerMove(data, playmakerType, ballStop, zones) {
   const player = data.yourTeam.players[data.playerIndex];
@@ -233,25 +241,13 @@ function calculateFollowPlaymakerMove(data, playmakerType, ballStop, zones) {
   };
   const targetDirection = getDirectionTo(currentPoint, targetPoint);
   const directionDelta = targetDirection - convertEngineDirection(player.direction);
-  // const targetDistance = getDistance(currentPoint, targetPoint);
 
   const moveDirection = targetDirection;
-  // const moveVelocity = slowStopPlayer(
-  //   getPlayerVelocity(
-  //     player.velocity,
-  //     directionDelta,
-  //     maxPlayerVelocity,
-  //     2,
-  //   ),
-  //   targetDistance,
-  //   playerRadius,
-  //   maxPlayerVelocity,
-  // );
   const moveVelocity = getPlayerVelocity(
+    data,
     player.velocity,
     directionDelta,
     maxPlayerVelocity,
-    2,
   );
 
   return {
@@ -263,6 +259,7 @@ function calculateFollowPlaymakerMove(data, playmakerType, ballStop, zones) {
 function getPlaymakerFollowPositionY(zone) {
   return zone.top + ((zone.bottom - zone.top) / 2);
 }
+
 
 // -------------------------------------
 // Ball utils
@@ -303,11 +300,12 @@ function getDistance(point1, point2) {
 }
 
 function getPlayerVelocity( // Formula 1
+  data,
   currentVelocity,
   directionDelta,
-  maxVelocity,
-  exponent = 1,
+  exponent = 2,
 ) {
+  const maxVelocity = data.settings.player.maxVelocity;
   const velocity = Math.max(
     maxVelocity - (
       Math.pow((Math.abs(directionDelta) / (PI / 2)), exponent) * currentVelocity
