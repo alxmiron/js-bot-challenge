@@ -303,7 +303,7 @@ function convertEngineDirection(engineDirection) { // Formula 2
 function getZonesParams(data) {
   const fieldWidth = data.settings.field.width;
   const fieldHeight = data.settings.field.height;
-  const goalkeeperZoneEnd = fieldWidth / 4;
+  const goalkeeperZoneEnd = (fieldWidth / 2) * 0.65;
 
   return {
     [Zones.G]: {
