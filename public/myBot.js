@@ -10,7 +10,6 @@ const GOALKEEPER_POS_X = 0.07; // % of field width
 const GoalkeeperModes = {
   FOLLOW: 'FOLLOW', // align Y with the ball, but keep goalkeeper X distance
   DEFENCE: 'DEFENCE', // move toward the ball
-  DEFAULT: 'FOLLOW',
 };
 
 // const PlaymakerModes = {
@@ -69,9 +68,7 @@ function calculateGoalkeeperMove(data) {
   const player = data.yourTeam.players[data.playerIndex];
 
   const fieldWidth = data.settings.field.width;
-  // const fieldHeight = data.settings.field.height;
   const ballRadius = data.settings.ball.radius;
-  const playerRadius = data.settings.player.radius;
   const maxPlayerVelocity = data.settings.player.maxVelocity;
   const zones = getZonesParams(data);
   const goalkeeperZoneEnd = zones[Zones.G].end;
@@ -82,16 +79,6 @@ function calculateGoalkeeperMove(data) {
 
   let moveDirection = player.direction;
   let moveVelocity = 0;
-
-  // ballStop.x = fieldWidth / 2;
-  // ballStop.y = fieldHeight * 0.1;
-
-  // if (!shouldGoalkeeperMove(mode, player, ball, ballStop)) {
-  //   return {
-  //     direction: moveDirection,
-  //     velocity: moveVelocity,
-  //   };
-  // }
 
   const currentPoint = player;
   const targetPoint = mode === GoalkeeperModes.FOLLOW ? {
@@ -107,6 +94,7 @@ function calculateGoalkeeperMove(data) {
 
   moveDirection = targetDirection;
   moveVelocity = getGoalkeeperVelocity(
+    data,
     mode,
     getPlayerVelocity(
       player.velocity,
@@ -115,8 +103,6 @@ function calculateGoalkeeperMove(data) {
       2,
     ),
     targetDistance,
-    playerRadius,
-    maxPlayerVelocity,
   );
 
   return {
@@ -125,28 +111,18 @@ function calculateGoalkeeperMove(data) {
   };
 }
 
-// function shouldGoalkeeperMove(mode, goalkeeper, ball, ballStop) {
-//   switch (mode) {
-//     case GoalkeeperModes.FOLLOW:
-//       if (ballStop.stopTime === 0 && Math.abs(ball.y - goalkeeper.y) < POS_EPS) {
-//         return false;
-//       }
-//       break;
-//     default:
-//   }
-//   return true;
-// }
-
 function getGoalkeeperVelocity(
-  mode = GoalkeeperModes.DEFAULT,
+  data,
+  mode,
   velocity,
-  distance,
-  playerRadius,
-  maxPlayerVelocity,
+  targetDistance,
 ) {
+  const maxPlayerVelocity = data.settings.player.maxVelocity;
+  const playerRadius = data.settings.player.radius;
+
   switch (mode) {
     case GoalkeeperModes.FOLLOW:
-      return slowStopPlayer(velocity, distance, playerRadius, maxPlayerVelocity);
+      return slowStopPlayer(velocity, targetDistance, playerRadius, maxPlayerVelocity);
     case GoalkeeperModes.DEFENCE:
       return velocity;
     default:
@@ -160,16 +136,12 @@ function getGoalkeeperVelocity(
 // -------------------------------------
 function calculatePlaymakerMove(data, playmakerType) {
   const player = data.yourTeam.players[data.playerIndex];
-  const playerRadius = data.settings.player.radius;
-  const maxPlayerVelocity = data.settings.player.maxVelocity;
   const ball = data.ball;
-  const ballRadius = data.settings.ball.radius;
-  const ballStop = getBallStats(ball, data.settings);
-
-  const zones = getZonesParams(data);
   const playerZone = PlayerZone[playmakerType];
+
+  const ballStop = getBallStats(ball, data.settings);
+  const zones = getZonesParams(data);
   const ballZone = detectPointZone(zones, ball, data.settings.field);
-  // console.dir(ballZone);
 
   let moveObj = {
     direction: player.direction,
@@ -178,40 +150,31 @@ function calculatePlaymakerMove(data, playmakerType) {
 
   if (ballZone.center) {
     if (playmakerType === PlaymakerTypes.TOP) {
-      return calculateAttackPlaymakerMove(player, ball, ballStop, maxPlayerVelocity, ballRadius);
+      return calculateAttackPlaymakerMove(data, playmakerType);
     }
-    return calculateFollowPlaymakerMove(
-      player,
-      playerZone,
-      ballStop,
-      zones,
-      maxPlayerVelocity,
-      playerRadius,
-    );
+    return calculateFollowPlaymakerMove(data, playmakerType, ballStop, zones);
   }
 
   if (ballZone.zone === playerZone || ballZone.zone === Zones.G) {
     if (ballZone.aggressive) {
-      moveObj = calculateAttackPlaymakerMove(player, ball, ballStop, maxPlayerVelocity, ballRadius);
+      moveObj = calculateAttackPlaymakerMove(data, playmakerType);
     } else {
       // moveObj = calculateDefencePlaymakerMove();
-      moveObj = calculateAttackPlaymakerMove(player, ball, ballStop, maxPlayerVelocity, ballRadius);
+      moveObj = calculateAttackPlaymakerMove(data, playmakerType);
     }
   } else {
-    moveObj = calculateFollowPlaymakerMove(
-      player,
-      playerZone,
-      ballStop,
-      zones,
-      maxPlayerVelocity,
-      playerRadius,
-    );
+    moveObj = calculateFollowPlaymakerMove(data, playmakerType, ballStop, zones);
   }
 
   return moveObj;
 }
 
-function calculateAttackPlaymakerMove(player, ball, ballStop, maxPlayerVelocity, ballRadius) {
+function calculateAttackPlaymakerMove(data) {
+  const player = data.yourTeam.players[data.playerIndex];
+  const maxPlayerVelocity = data.settings.player.maxVelocity;
+  const ball = data.ball;
+  const ballRadius = data.settings.ball.radius;
+
   const currentPoint = player;
   const targetPoint = ball;
   const targetDirection = getDirectionTo(currentPoint, targetPoint);
@@ -235,14 +198,12 @@ function calculateAttackPlaymakerMove(player, ball, ballStop, maxPlayerVelocity,
 //
 // }
 
-function calculateFollowPlaymakerMove(
-  player,
-  playerZone,
-  ballStop,
-  zones,
-  maxPlayerVelocity,
-  playerRadius,
-) {
+function calculateFollowPlaymakerMove(data, playmakerType, ballStop, zones) {
+  const player = data.yourTeam.players[data.playerIndex];
+  const playerRadius = data.settings.player.radius;
+  const maxPlayerVelocity = data.settings.player.maxVelocity;
+  const playerZone = PlayerZone[playmakerType];
+
   const currentPoint = player;
   const targetPoint = {
     x: Math.max(ballStop.x - (playerRadius * 6), 0),
@@ -280,6 +241,7 @@ function calculateFollowPlaymakerMove(
 function getPlaymakerFollowPositionY(zone) {
   return zone.top + ((zone.bottom - zone.top) / 2);
 }
+
 
 // -------------------------------------
 // Ball utils
