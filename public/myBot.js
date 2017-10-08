@@ -3,8 +3,8 @@
 const PI = Math.PI;
 
 const GOALKEEPER = 1;
-// const PLAYER2 = 0;
-// const PLAYER3 = 2;
+const PLAYMAKER_TOP = 0;
+const PLAYMAKER_BOTTOM = 2;
 
 const GOALKEEPER_POS_X = 0.07; // % of field width
 const GoalkeeperModes = {
@@ -13,7 +13,29 @@ const GoalkeeperModes = {
   DEFAULT: 'FOLLOW',
 };
 
-// const POS_EPS = 1;
+// const PlaymakerModes = {
+//   ATTACK: 'ATTACK',
+//   FOLLOW: 'FOLLOW',
+//   DEFENCE: 'DEFENCE',
+// };
+const PlaymakerTypes = {
+  TOP: PLAYMAKER_TOP,
+  BOTTOM: PLAYMAKER_BOTTOM,
+};
+
+const Zones = {
+  G: 'G',
+  PT: 'PT',
+  PB: 'PB',
+};
+
+const PlayerZone = {
+  [GOALKEEPER]: Zones.G,
+  [PLAYMAKER_TOP]: Zones.PT,
+  [PLAYMAKER_BOTTOM]: Zones.PB,
+};
+
+const POS_EPS = 2;
 // const DIR_EPS = PI / 180;
 
 function getPlayerMove(data) {
@@ -28,7 +50,7 @@ function getPlayerMove(data) {
       moveObj = calculateGoalkeeperMove(data);
       break;
     default:
-      moveObj = calculatePlaymakerMove(data);
+      moveObj = calculatePlaymakerMove(data, data.playerIndex);
   }
 
   return {
@@ -51,7 +73,8 @@ function calculateGoalkeeperMove(data) {
   const ballRadius = data.settings.ball.radius;
   const playerRadius = data.settings.player.radius;
   const maxPlayerVelocity = data.settings.player.maxVelocity;
-  const goalkeeperZoneEnd = GOALKEEPER_POS_X * 4 * fieldWidth;
+  const zones = getZonesParams(data);
+  const goalkeeperZoneEnd = zones[Zones.G].end;
 
   const mode = ballStop.x < goalkeeperZoneEnd ?
     GoalkeeperModes.DEFENCE :
@@ -80,9 +103,9 @@ function calculateGoalkeeperMove(data) {
   };
   const targetDirection = getDirectionTo(currentPoint, targetPoint);
   const targetDistance = getDistance(currentPoint, targetPoint);
+  const directionDelta = targetDirection - convertEngineDirection(player.direction);
 
   moveDirection = targetDirection;
-  const directionDelta = targetDirection - convertEngineDirection(player.direction);
   moveVelocity = getGoalkeeperVelocity(
     mode,
     getPlayerVelocity(
@@ -123,7 +146,7 @@ function getGoalkeeperVelocity(
 ) {
   switch (mode) {
     case GoalkeeperModes.FOLLOW:
-      return slowStopGoalkeeper(velocity, distance, playerRadius, maxPlayerVelocity);
+      return slowStopPlayer(velocity, distance, playerRadius, maxPlayerVelocity);
     case GoalkeeperModes.DEFENCE:
       return velocity;
     default:
@@ -131,37 +154,132 @@ function getGoalkeeperVelocity(
   return null;
 }
 
-function slowStopGoalkeeper(velocity, distance, playerRadius, maxPlayerVelocity) { // Formula 3
-  let newVelocity = velocity;
-  const stopThreshold = playerRadius * (velocity / maxPlayerVelocity) * 8;
-  if (distance < stopThreshold) {
-    newVelocity = 0;
-  }
-  return newVelocity;
-}
-
 
 // -------------------------------------
-// Attack players
+// Playmakers
 // -------------------------------------
-
-// Aggresive strategy "run-and-kick"- all players run to ball and kick it
-// if possible to any direction
-function calculatePlaymakerMove(data) {
+function calculatePlaymakerMove(data, playmakerType) {
   const player = data.yourTeam.players[data.playerIndex];
+  const playerRadius = data.settings.player.radius;
   const maxPlayerVelocity = data.settings.player.maxVelocity;
   const ball = data.ball;
   const ballRadius = data.settings.ball.radius;
   const ballStop = getBallStats(ball, data.settings);
 
-  const attackDirection = Math.atan2(ballStop.y - player.y, ballStop.x - player.x - ballRadius);
+  const zones = getZonesParams(data);
+  const playerZone = PlayerZone[playmakerType];
+  const ballZone = detectPointZone(zones, ball, data.settings.field);
+  // console.dir(ballZone);
+
+  let moveObj = {
+    direction: player.direction,
+    velocity: 0,
+  };
+
+  if (ballZone.center) {
+    if (playmakerType === PlaymakerTypes.TOP) {
+      return calculateAttackPlaymakerMove(player, ball, ballStop, maxPlayerVelocity, ballRadius);
+    }
+    return calculateFollowPlaymakerMove(
+      player,
+      playerZone,
+      ballStop,
+      zones,
+      maxPlayerVelocity,
+      playerRadius,
+    );
+  }
+
+  if (ballZone.zone === playerZone || ballZone.zone === Zones.G) {
+    if (ballZone.aggressive) {
+      moveObj = calculateAttackPlaymakerMove(player, ball, ballStop, maxPlayerVelocity, ballRadius);
+    } else {
+      // moveObj = calculateDefencePlaymakerMove();
+      moveObj = calculateAttackPlaymakerMove(player, ball, ballStop, maxPlayerVelocity, ballRadius);
+    }
+  } else {
+    moveObj = calculateFollowPlaymakerMove(
+      player,
+      playerZone,
+      ballStop,
+      zones,
+      maxPlayerVelocity,
+      playerRadius,
+    );
+  }
+
+  return moveObj;
+}
+
+function calculateAttackPlaymakerMove(player, ball, ballStop, maxPlayerVelocity, ballRadius) {
+  const currentPoint = player;
+  const targetPoint = ball;
+  const targetDirection = getDirectionTo(currentPoint, targetPoint);
+  const directionDelta = targetDirection - convertEngineDirection(player.direction);
+
+  const moveDirection = Math.atan2(ball.y - player.y, ball.x - player.x - ballRadius);
+  const moveVelocity = getPlayerVelocity(
+    player.velocity,
+    directionDelta,
+    maxPlayerVelocity,
+    2,
+  );
 
   return {
-    direction: attackDirection,
-    velocity: maxPlayerVelocity,
+    direction: moveDirection,
+    velocity: moveVelocity,
   };
 }
 
+// function calculateDefencePlaymakerMove() {
+//
+// }
+
+function calculateFollowPlaymakerMove(
+  player,
+  playerZone,
+  ballStop,
+  zones,
+  maxPlayerVelocity,
+  playerRadius,
+) {
+  const currentPoint = player;
+  const targetPoint = {
+    x: Math.max(ballStop.x - (playerRadius * 6), 0),
+    y: getPlaymakerFollowPositionY(zones[playerZone]),
+  };
+  const targetDirection = getDirectionTo(currentPoint, targetPoint);
+  const directionDelta = targetDirection - convertEngineDirection(player.direction);
+  // const targetDistance = getDistance(currentPoint, targetPoint);
+
+  const moveDirection = targetDirection;
+  // const moveVelocity = slowStopPlayer(
+  //   getPlayerVelocity(
+  //     player.velocity,
+  //     directionDelta,
+  //     maxPlayerVelocity,
+  //     2,
+  //   ),
+  //   targetDistance,
+  //   playerRadius,
+  //   maxPlayerVelocity,
+  // );
+  const moveVelocity = getPlayerVelocity(
+    player.velocity,
+    directionDelta,
+    maxPlayerVelocity,
+    2,
+  );
+
+  return {
+    direction: moveDirection,
+    velocity: moveVelocity,
+  };
+}
+
+function getPlaymakerFollowPositionY(zone) {
+  return zone.top + ((zone.bottom - zone.top) / 2);
+}
 
 // -------------------------------------
 // Ball utils
@@ -218,6 +336,73 @@ function getPlayerVelocity( // Formula 1
 
 function convertEngineDirection(engineDirection) { // Formula 2
   return engineDirection > PI ? engineDirection - (2 * PI) : engineDirection;
+}
+
+function getZonesParams(data) {
+  const fieldWidth = data.settings.field.width;
+  const fieldHeight = data.settings.field.height;
+
+  return {
+    [Zones.G]: {
+      start: 0,
+      end: GOALKEEPER_POS_X * 4 * fieldWidth,
+      top: 0,
+      bottom: fieldHeight,
+    },
+    [Zones.PT]: {
+      start: GOALKEEPER_POS_X * 4 * fieldWidth,
+      end: fieldWidth,
+      top: 0,
+      bottom: fieldHeight * 0.5,
+    },
+    [Zones.PB]: {
+      start: GOALKEEPER_POS_X * 4 * fieldWidth,
+      end: fieldWidth,
+      top: fieldHeight * 0.5,
+      bottom: fieldHeight,
+    },
+  };
+}
+
+function detectPointZone(zones, point, field) {
+  const x = point.x;
+  const y = point.y;
+  const result = {
+    zone: null,
+    defence: false,
+    aggressive: false,
+    center: false,
+  };
+
+  if (x > zones[Zones.G].end) {
+    if (y < zones[Zones.PT].bottom) {
+      result.zone = Zones.PT;
+    } else {
+      result.zone = Zones.PB;
+    }
+    if (x < field.width * 0.5) {
+      result.defence = true;
+    } else {
+      result.aggressive = true;
+    }
+  } else {
+    result.zone = Zones.G;
+  }
+  if (Math.abs(x - (field.width / 2) < POS_EPS) &&
+      Math.abs(y - (field.height / 2) < POS_EPS)) {
+    result.center = true;
+  }
+
+  return result;
+}
+
+function slowStopPlayer(velocity, distance, playerRadius, maxPlayerVelocity) { // Formula 3
+  let newVelocity = velocity;
+  const stopThreshold = playerRadius * (velocity / maxPlayerVelocity) * 8;
+  if (distance < stopThreshold) {
+    newVelocity = 0;
+  }
+  return newVelocity;
 }
 
 // -------------------------------------
