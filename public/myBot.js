@@ -73,7 +73,7 @@ function calculateGoalkeeperMove(data) {
   const zones = getZonesParams(data);
   const goalkeeperZoneEnd = zones[Zones.G].end;
 
-  const mode = ballStop.x < goalkeeperZoneEnd ?
+  const mode = (ballStop.x < goalkeeperZoneEnd || ball.x < goalkeeperZoneEnd) ?
     GoalkeeperModes.DEFENCE :
     GoalkeeperModes.FOLLOW;
 
@@ -81,13 +81,26 @@ function calculateGoalkeeperMove(data) {
   let moveVelocity = 0;
 
   const currentPoint = player;
-  const targetPoint = mode === GoalkeeperModes.FOLLOW ? {
-    x: GOALKEEPER_POS_X * fieldWidth,
-    y: ballStop.y + posNoize(ballRadius),
-  } : {
-    x: ballStop.x - ballRadius,
-    y: ballStop.y,
-  };
+  const distanceToBall = getDistance(currentPoint, ball);
+  let targetPoint;
+  switch (mode) {
+    case GoalkeeperModes.FOLLOW:
+      targetPoint = {
+        x: GOALKEEPER_POS_X * fieldWidth,
+        y: ballStop.y + posNoize(ballRadius),
+      };
+      break;
+    case GoalkeeperModes.DEFENCE:
+      targetPoint = distanceToBall <= ballRadius ? {
+        x: ball.x,
+        y: ball.y,
+      } : {
+        x: ballStop.x - ballRadius,
+        y: ballStop.y,
+      };
+      break;
+    default:
+  }
   const targetDirection = getDirectionTo(currentPoint, targetPoint);
   const targetDistance = getDistance(currentPoint, targetPoint);
   const directionDelta = targetDirection - convertEngineDirection(player.direction);
@@ -103,6 +116,7 @@ function calculateGoalkeeperMove(data) {
       2,
     ),
     targetDistance,
+    distanceToBall,
   );
 
   return {
@@ -116,15 +130,22 @@ function getGoalkeeperVelocity(
   mode,
   velocity,
   targetDistance,
+  distanceToBall,
 ) {
   const maxPlayerVelocity = data.settings.player.maxVelocity;
   const playerRadius = data.settings.player.radius;
+  const ballRadius = data.settings.ball.radius;
+
+  const player = data.yourTeam.players[data.playerIndex];
+  const ball = data.ball;
 
   switch (mode) {
     case GoalkeeperModes.FOLLOW:
       return slowStopPlayer(velocity, targetDistance, playerRadius, maxPlayerVelocity);
     case GoalkeeperModes.DEFENCE:
-      return velocity;
+      return (distanceToBall <= ballRadius && player.x < ball.x) ?
+        maxPlayerVelocity :
+        velocity;
     default:
   }
   return null;
