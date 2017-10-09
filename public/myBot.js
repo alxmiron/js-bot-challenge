@@ -117,16 +117,36 @@ function calculateGoalkeeperMove(data) {
 }
 
 function getGoalkeeperBallTargetPoint(data, mode) {
+  const ball = data.ball;
   const fieldWidth = data.settings.field.width;
   const ballRadius = data.settings.ball.radius;
+  const goalkeeperPositionX = GOALKEEPER_POS_X * fieldWidth;
+  let playerTop;
+  let playerBottom;
+
+  const zones = getZonesParams(data);
 
   let targetPoint = getBallTargetPoint(data);
   switch (mode) {
     case GoalkeeperModes.FOLLOW:
       targetPoint = {
-        x: GOALKEEPER_POS_X * fieldWidth,
+        x: goalkeeperPositionX,
         y: targetPoint.y + posNoize(ballRadius),
       };
+      break;
+    case GoalkeeperModes.DEFENCE:
+      playerTop = data.yourTeam.players[PLAYMAKER_TOP];
+      playerBottom = data.yourTeam.players[PLAYMAKER_BOTTOM];
+      if ((detectPointZone(data, zones, playerTop).defence &&
+            playerTop.x + (ballRadius * 2) < ball.x &&
+            Math.abs(playerTop.y - ball.y) < ballRadius * 4) ||
+          (detectPointZone(data, zones, playerBottom).defence &&
+            playerBottom.x + (ballRadius * 2) < ball.x &&
+            Math.abs(playerBottom.y - ball.y) < ballRadius * 4)) {
+        // Another player is close to the ball
+        // Move back to goalpeeker position
+        targetPoint.x = Math.min(targetPoint.x, goalkeeperPositionX);
+      }
       break;
     default:
   }
@@ -191,7 +211,7 @@ function getPlaymakerBallTargetPoint(data, playmakerType, firstRun) {
   const playerRadius = data.settings.player.radius;
   const ballRadius = data.settings.ball.radius;
   const satelliteOffsetX = playerRadius * 3;
-  const satelliteOffsetY = playerRadius * 6;
+  const satelliteOffsetY = playerRadius * 8;
 
   const targetPoint = getBallTargetPoint(data);
   const zones = getZonesParams(data);
