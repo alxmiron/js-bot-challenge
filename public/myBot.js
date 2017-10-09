@@ -8,32 +8,53 @@ const PI = Math.PI;
 const PLAYMAKER_TOP = 0;
 const GOALKEEPER = 1;
 const PLAYMAKER_BOTTOM = 2;
-
 const GOALKEEPER_POS_X = 80 / 708; // % of field width
+const POS_EPS = 2;
+const Strategies = {
+  ONE_TWO: 'ONE_TWO',
+};
 const GoalkeeperModes = {
   FOLLOW: 'FOLLOW', // align Y with the ball, but keep goalkeeper X distance
   DEFENCE: 'DEFENCE', // move toward the ball
 };
-
 const Zones = {
   G: 'G',
   PT: 'PT',
   PB: 'PB',
 };
-
 const PlayerZone = {
   [GOALKEEPER]: Zones.G,
   [PLAYMAKER_TOP]: Zones.PT,
   [PLAYMAKER_BOTTOM]: Zones.PB,
 };
 
-const POS_EPS = 2;
+const SELECTED_STRATEGY = Strategies.ONE_TWO;
 
 
 // -------------------------------------
 // Main
 // -------------------------------------
 function getPlayerMove(data) {
+  const currentPlayer = data.yourTeam.players[data.playerIndex];
+  let moveObj = {
+    direction: currentPlayer.direction,
+    velocity: 0,
+  };
+
+  switch (SELECTED_STRATEGY) {
+    case Strategies.ONE_TWO:
+      moveObj = getOneTwoStrategyMove(data);
+      break;
+    default:
+  }
+
+  return {
+    direction: moveObj.direction,
+    velocity: moveObj.velocity,
+  };
+}
+
+function getOneTwoStrategyMove(data) {
   const currentPlayer = data.yourTeam.players[data.playerIndex];
   let moveObj = {
     direction: currentPlayer.direction,
@@ -178,7 +199,7 @@ function getPlaymakerBallTargetPoint(data, playmakerType, firstRun) {
 
   if (firstRun) return targetPoint;
 
-  if (player.x + (playerRadius * 2) < ball.x) { // Attack
+  if (player.x < ball.x) { // Attack
     if (playmakerType === PLAYMAKER_TOP && ballZone.zone === Zones.PB) { // Satellite mode
       targetPoint.x -= satelliteOffsetX;
       targetPoint.y -= satelliteOffsetY + posNoize(ballRadius);
